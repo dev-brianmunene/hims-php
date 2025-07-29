@@ -142,6 +142,33 @@
                                                 </div>
                                             </div>
 
+                                            <!-- New Insurance and Department fields -->
+                                            <div class="form-row">
+                                                <div class="form-group col-md-6">
+                                                    <label for="insurance" class="col-form-label">Insurance Provider</label>
+                                                    <select id="insurance" name="insurance" class="form-control" required>
+                                                        <option value="">Select Insurance</option>
+                                                        <option value="NHIF">NHIF</option>
+                                                        <option value="AAR">AAR</option>
+                                                        <option value="Jubilee">Jubilee</option>
+                                                        <option value="Britam">Britam</option>
+                                                        <option value="Self-Pay">Self-Pay</option>
+                                                    </select>
+                                                </div>
+                                                <div class="form-group col-md-6">
+                                                    <label for="department" class="col-form-label">Department</label>
+                                                    <select id="department" name="department" class="form-control" required>
+                                                        <option value="">Select Department</option>
+                                                        <option value="General Medicine">General Medicine</option>
+                                                        <option value="Pediatrics">Pediatrics</option>
+                                                        <option value="Surgery">Surgery</option>
+                                                        <option value="Maternity">Maternity</option>
+                                                        <option value="Dental">Dental</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <!-- End new fields -->
+
                                             <button type="submit" name="add_patient" class="ladda-button btn btn-primary" data-style="expand-right">Add Patient</button>
 
                                         </form>
