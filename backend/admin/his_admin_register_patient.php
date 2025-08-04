@@ -4,34 +4,75 @@
 	include('assets/inc/config.php');
 		if(isset($_POST['add_patient']))
 		{
-			$pat_fname=$_POST['pat_fname'];
-			$pat_lname=$_POST['pat_lname'];
-			$pat_number=$_POST['pat_number'];
-            $pat_phone=$_POST['pat_phone'];
-            $pat_type=$_POST['pat_type'];
-            $pat_addr=$_POST['pat_addr'];
-            $pat_age = $_POST['pat_age'];
+			// Basic patient information
+			$pat_fname = $_POST['pat_fname'];
+			$pat_lname = $_POST['pat_lname'];
+			$pat_number = $_POST['pat_number'];
+            $pat_phone = $_POST['pat_phone'];
+            $pat_addr = $_POST['pat_addr'];
+            $pat_age_years = $_POST['pat_age_years'];
+            $pat_age_months = $_POST['pat_age_months'];
+            $pat_age_days = $_POST['pat_age_days'];
+            $pat_age = $pat_age_years; // Keep main age as years for compatibility
             $pat_dob = $_POST['pat_dob'];
-            $pat_ailment = $_POST['pat_ailment'];
-            //sql to insert captured values
-			$query="insert into his_patients (pat_fname, pat_ailment, pat_lname, pat_age, pat_dob, pat_number, pat_phone, pat_type, pat_addr) values(?,?,?,?,?,?,?,?,?)";
-			$stmt = $mysqli->prepare($query);
-			$rc=$stmt->bind_param('sssssssss', $pat_fname, $pat_ailment, $pat_lname, $pat_age, $pat_dob, $pat_number, $pat_phone, $pat_type, $pat_addr);
-			$stmt->execute();
-			/*
-			*Use Sweet Alerts Instead Of This Fucked Up Javascript Alerts
-			*echo"<script>alert('Successfully Created Account Proceed To Log In ');</script>";
-			*/ 
-			//declare a varible which will be passed to alert function
-			if($stmt)
-			{
-				$success = "Patient Details Added";
-			}
-			else {
-				$err = "Please Try Again Or Try Later";
-			}
-			
-			
+            
+            // Insurance information
+            $has_insurance = isset($_POST['has_insurance']) ? 1 : 0;
+            $insurance_provider = $_POST['insurance_provider'] ?? '';
+            $insurance_scheme = $_POST['insurance_scheme'] ?? '';
+            $member_number = $_POST['member_number'] ?? '';
+            
+            // Next of kin information
+            $kin_name = $_POST['kin_name'];
+            $kin_phone = $_POST['kin_phone'];
+            $kin_alt_phone = $_POST['kin_alt_phone'] ?? '';
+            $kin_relationship = $_POST['kin_relationship'];
+            $kin_employment = $_POST['kin_employment'] ?? '';
+            
+            // Hospital details
+            $department = $_POST['department'];
+            $admission_date = $_POST['admission_date'];
+            
+            // Begin transaction
+            $mysqli->autocommit(FALSE);
+            
+            try {
+                // Insert into his_patients table (removed pat_ailment and pat_type)
+                $query = "INSERT INTO his_patients (pat_fname, pat_lname, pat_age, pat_age_years, pat_age_months, pat_age_days, pat_dob, pat_number, pat_phone, pat_addr) VALUES(?,?,?,?,?,?,?,?,?,?)";
+                $stmt = $mysqli->prepare($query);
+                $stmt->bind_param('sssiisssss', $pat_fname, $pat_lname, $pat_age, $pat_age_years, $pat_age_months, $pat_age_days, $pat_dob, $pat_number, $pat_phone, $pat_addr);
+                $stmt->execute();
+                
+                // Insert insurance information
+                $insurance_query = "INSERT INTO his_patient_insurance (pat_number, has_insurance, insurance_provider, insurance_scheme, member_number) VALUES(?,?,?,?,?)";
+                $insurance_stmt = $mysqli->prepare($insurance_query);
+                $insurance_stmt->bind_param('sisss', $pat_number, $has_insurance, $insurance_provider, $insurance_scheme, $member_number);
+                $insurance_stmt->execute();
+                
+                // Insert next of kin information
+                $kin_query = "INSERT INTO his_patient_next_of_kin (pat_number, kin_name, kin_phone, kin_alt_phone, kin_relationship, kin_employment) VALUES(?,?,?,?,?,?)";
+                $kin_stmt = $mysqli->prepare($kin_query);
+                $kin_stmt->bind_param('ssssss', $pat_number, $kin_name, $kin_phone, $kin_alt_phone, $kin_relationship, $kin_employment);
+                $kin_stmt->execute();
+                
+                // Insert hospital details
+                $hospital_query = "INSERT INTO his_patient_hospital_details (pat_number, department, admission_date) VALUES(?,?,?)";
+                $hospital_stmt = $mysqli->prepare($hospital_query);
+                $hospital_stmt->bind_param('sss', $pat_number, $department, $admission_date);
+                $hospital_stmt->execute();
+                
+                // Commit transaction
+                $mysqli->commit();
+                $success = "Patient Details Added Successfully";
+                
+            } catch (Exception $e) {
+                // Rollback transaction on error
+                $mysqli->rollback();
+                $err = "Error: " . $e->getMessage();
+            }
+            
+            // Re-enable autocommit
+            $mysqli->autocommit(TRUE);
 		}
 ?>
 <!--End Server Side-->
@@ -80,6 +121,26 @@
                             </div>
                         </div>     
                         <!-- end page title --> 
+                        
+                        <!-- Success/Error Messages -->
+                        <?php if(isset($success)): ?>
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            <strong>Success!</strong> <?php echo $success; ?>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <?php endif; ?>
+                        
+                        <?php if(isset($err)): ?>
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            <strong>Error!</strong> <?php echo $err; ?>
+                            <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <?php endif; ?>
+                        
                         <!-- Form row -->
                         <div class="row">
                             <div class="col-12">
@@ -92,18 +153,18 @@
                                             <h5 class="mt-3 mb-2">Personal Information</h5>
                                             <div class="form-row">
                                                 <div class="form-group col-md-6">
-                                                    <label for="inputEmail4" class="col-form-label">First Name</label>
-                                                    <input type="text" required="required" name="pat_fname" class="form-control" id="inputEmail4" placeholder="Patient's First Name">
+                                                    <label for="pat_fname" class="col-form-label">First Name</label>
+                                                    <input type="text" required="required" name="pat_fname" class="form-control" id="pat_fname" placeholder="Patient's First Name">
                                                 </div>
                                                 <div class="form-group col-md-6">
-                                                    <label for="inputPassword4" class="col-form-label">Last Name</label>
-                                                    <input required="required" type="text" name="pat_lname" class="form-control"  id="inputPassword4" placeholder="Patient`s Last Name">
+                                                    <label for="pat_lname" class="col-form-label">Last Name</label>
+                                                    <input required="required" type="text" name="pat_lname" class="form-control" id="pat_lname" placeholder="Patient's Last Name">
                                                 </div>
                                             </div>
                                             <div class="form-row">
                                                 <div class="form-group col-md-6">
-                                                    <label for="inputEmail4" class="col-form-label">Date Of Birth</label>
-                                                    <input type="date" required="required" name="pat_dob" class="form-control" id="inputEmail4" placeholder="DD/MM/YYYY" onchange="calculateAge()">
+                                                    <label for="pat_dob" class="col-form-label">Date Of Birth</label>
+                                                    <input type="date" required="required" name="pat_dob" class="form-control" id="pat_dob" placeholder="DD/MM/YYYY" onchange="calculateAge()">
                                                 </div>
                                                 <div class="form-group col-md-6">
                                                     <label class="col-form-label">Age</label>
@@ -121,41 +182,24 @@
                                                 </div>
                                             </div>
                                             <div class="form-group">
-                                                <label for="inputAddress" class="col-form-label">Address</label>
-                                                <input required="required" type="text" class="form-control" name="pat_addr" id="inputAddress" placeholder="Patient's Addresss">
+                                                <label for="pat_addr" class="col-form-label">Address</label>
+                                                <input required="required" type="text" class="form-control" name="pat_addr" id="pat_addr" placeholder="Patient's Address">
                                             </div>
 
-                                            <!-- Contact & Medical Info -->
-                                            <h5 class="mt-3 mb-2">Contact & Medical Info</h5>
+                                            <!-- Contact Information -->
+                                            <h5 class="mt-3 mb-2">Contact Information</h5>
                                             <div class="form-row">
-                                                <div class="form-group col-md-4">
-                                                    <label for="inputCity" class="col-form-label">Mobile Number</label>
-                                                    <input required="required" type="text" name="pat_phone" class="form-control" id="inputCity">
+                                                <div class="form-group col-md-6">
+                                                    <label for="pat_phone" class="col-form-label">Mobile Number</label>
+                                                    <input required="required" type="text" name="pat_phone" class="form-control" id="pat_phone" placeholder="Patient's Mobile Number">
                                                 </div>
-                                                <!-- This also should appear on the doctor's side
-                                                <div class="form-group col-md-4">
-                                                    <label for="inputCity" class="col-form-label">Patient Ailment</label>
-                                                    <input required="required" type="text" name="pat_ailment" class="form-control" id="inputCity">
-                                                </div>
-                                                --->
-                                                <!-- This part should appear on the doctor's diagnosis
-                                                <div class="form-group col-md-4">
-                                                    <label for="inputState" class="col-form-label">Patient's Type</label>
-                                                    <select id="inputState" required="required" name="pat_type" class="form-control">
-                                                        <option>Choose</option>
-                                                        <option>InPatient</option>
-                                                        <option>OutPatient</option>
-                                                    </select>
-                                                </div>
-                                                --->
-                                                
-                                                <div class="form-group col-md-2" style="display:none">
+                                                <div class="form-group col-md-6" style="display:none">
                                                     <?php 
                                                         $length = 5;    
-                                                        $patient_number =  substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'),1,$length);
+                                                        $patient_number = substr(str_shuffle('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'),1,$length);
                                                     ?>
-                                                    <label for="inputZip" class="col-form-label">Patient Number</label>
-                                                    <input type="text" name="pat_number" value="<?php echo $patient_number;?>" class="form-control" id="inputZip">
+                                                    <label for="pat_number" class="col-form-label">Patient Number</label>
+                                                    <input type="text" name="pat_number" value="<?php echo $patient_number;?>" class="form-control" id="pat_number">
                                                 </div>
                                             </div>
 
@@ -182,15 +226,13 @@
                                                             <option value="Britam">Britam</option>
                                                             <option value="CIC">CIC</option>
                                                             <option value="Madison">Madison</option>
+                                                            <option value="Resolution">Resolution</option>
                                                             <option value="Other">Other</option>
                                                         </select>
                                                     </div>
                                                     <div class="form-group col-md-4">
                                                         <label for="insurance_scheme" class="col-form-label">Insurance Scheme</label>
-                                                        <select id="insurance_scheme_type" name="insurance_scheme_type" class="form-control">
-                                                            <option value="">Select Scheme</option>
-                                                            <option value="NHIF">NHIF FULL COVER</option>                                                            
-                                                        </select>
+                                                        <input type="text" name="insurance_scheme" class="form-control" id="insurance_scheme" placeholder="e.g. Afya Care, Supa Cover">
                                                     </div>
                                                     <div class="form-group col-md-4">
                                                         <label for="member_number" class="col-form-label">Member Number</label>
@@ -214,11 +256,13 @@
                                                         <option value="Orthopedics">Orthopedics</option>
                                                         <option value="Cardiology">Cardiology</option>
                                                         <option value="Emergency">Emergency</option>
+                                                        <option value="Dermatology">Dermatology</option>
+                                                        <option value="Ophthalmology">Ophthalmology</option>
                                                     </select>
                                                 </div>
                                                 <div class="form-group col-md-6">
                                                     <label for="admission_date" class="col-form-label">Admission Date</label>
-                                                    <input type="date" name="admission_date" class="form-control" id="admission_date" value="<?php echo date('Y-m-d'); ?>">
+                                                    <input type="date" name="admission_date" class="form-control" id="admission_date" value="<?php echo date('Y-m-d'); ?>" required>
                                                 </div>
                                             </div>
 
@@ -239,6 +283,7 @@
                                                         <option value="Sibling">Sibling</option>
                                                         <option value="Guardian">Guardian</option>
                                                         <option value="Friend">Friend</option>
+                                                        <option value="Relative">Relative</option>
                                                         <option value="Other">Other</option>
                                                     </select>
                                                 </div>
@@ -261,6 +306,7 @@
                                                         <option value="Student">Student</option>
                                                         <option value="Retired">Retired</option>
                                                         <option value="Unemployed">Unemployed</option>
+                                                        <option value="Casual Worker">Casual Worker</option>
                                                         <option value="Other">Other</option>
                                                     </select>
                                                 </div>
@@ -312,7 +358,7 @@
         <script src="assets/js/pages/loading-btn.init.js"></script>
         <script>
         function calculateAge() {
-            var dob = document.getElementById('inputEmail4').value;
+            var dob = document.getElementById('pat_dob').value;
             if (!dob) return;
             var birthDate = new Date(dob);
             var today = new Date();
